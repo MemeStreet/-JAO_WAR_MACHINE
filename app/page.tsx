@@ -1,3 +1,5 @@
+import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton'
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden relative">
@@ -195,13 +197,7 @@ export default function Home() {
 
           {/* CTA Buttons with extreme styling */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-20">
-            <button className="group relative px-10 py-5 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-full font-black text-lg hover:shadow-2xl hover:shadow-purple-500/50 transition-all transform hover:scale-110 overflow-hidden">
-              <span className="relative z-10 flex items-center gap-2">
-                CONNECT WALLET &amp; START EARNING
-                <span className="text-2xl animate-bounce">💰</span>
-              </span>
-              <div className="absolute inset-0 bg-gradient-to-r from-yellow-600 via-red-600 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity animate-gradient-x" />
-            </button>
+            <ConnectWalletButton />
             <button className="px-10 py-5 bg-white/10 backdrop-blur-sm rounded-full font-black text-lg hover:bg-white/20 transition-all border-2 border-white/30 hover:border-white/50 hover:scale-110 hover:shadow-xl">
               VIEW DOCUMENTATION
             </button>
