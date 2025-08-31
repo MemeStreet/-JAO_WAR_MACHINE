@@ -3,22 +3,97 @@
 
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton'
+import Link from 'next/link'
 
 export default function Dashboard() {
   const { publicKey, connected } = useWallet()
   const router = useRouter()
+  const [twitterUser, setTwitterUser] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Redirect to home if not connected
+  // Check for Twitter user in cookies
   useEffect(() => {
-    if (!connected) {
+    const getCookie = (name: string) => {
+      const value = `; ${document.cookie}`
+      const parts = value.split(`; ${name}=`)
+      if (parts.length === 2) return parts.pop()?.split(';').shift()
+    }
+
+    const twitterUserCookie = getCookie('twitter_user')
+    if (twitterUserCookie) {
+      try {
+        setTwitterUser(JSON.parse(decodeURIComponent(twitterUserCookie)))
+      } catch (e) {
+        console.error('Failed to parse Twitter user:', e)
+      }
+    }
+
+    // Clean up URL parameters
+    if (window.location.search) {
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [])
+
+  // Give wallet time to reconnect after OAuth redirect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+    }, 2000) // 2 seconds to allow wallet to reconnect
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Redirect to home if not connected (after loading)
+  useEffect(() => {
+    if (!isLoading && !connected) {
       router.push('/')
     }
-  }, [connected, router])
+  }, [connected, router, isLoading])
 
+  // Show loading state while checking wallet connection
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white overflow-hidden relative flex items-center justify-center">
+        <div className="fixed inset-0 bg-gradient-to-br from-purple-900/20 via-black to-pink-900/20" />
+        <div className="fixed inset-0 bg-gradient-to-tr from-blue-900/10 via-transparent to-red-900/10" />
+        <div className="relative z-10 text-center">
+          <div className="text-4xl font-black mb-4">
+            <span className="bg-gradient-to-r from-red-500 via-purple-500 to-blue-500 bg-clip-text text-transparent">
+              $JAO WARFARE
+            </span>
+          </div>
+          <div className="flex items-center justify-center gap-3">
+            <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
+            <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse animation-delay-200"></div>
+            <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse animation-delay-400"></div>
+          </div>
+          <p className="mt-4 text-gray-400">Connecting to dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render anything if not connected after loading
   if (!connected) {
     return null
+  }
+
+  const handleTwitterDisconnect = async () => {
+    try {
+      const response = await fetch('/api/auth/twitter/logout', {
+        method: 'POST'
+      })
+      
+      if (response.ok) {
+        setTwitterUser(null)
+        // Remove the cookie client-side without reload
+        document.cookie = 'twitter_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+      }
+    } catch (error) {
+      console.error('Failed to disconnect Twitter:', error)
+    }
   }
 
   return (
@@ -97,14 +172,46 @@ export default function Dashboard() {
             <div className="relative bg-gradient-to-br from-blue-900/40 to-purple-900/40 backdrop-blur-md rounded-3xl border border-blue-500/30 p-8 hover:border-blue-500/50 transition-all">
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-4xl">🐦</span>
-                <h2 className="text-2xl font-black text-blue-400">CONNECT TWITTER</h2>
+                <h2 className="text-2xl font-black text-blue-400">
+                  {twitterUser ? 'TWITTER CONNECTED' : 'CONNECT TWITTER'}
+                </h2>
               </div>
-              <p className="text-gray-300 mb-6">
-                Link your Twitter account to unlock campaign access and start earning $JAO for every action.
-              </p>
-              <button className="w-full px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full font-black text-lg transition-all transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50">
-                AUTHORIZE TWITTER ACCOUNT
-              </button>
+              {twitterUser ? (
+                <div>
+                  <div className="flex items-center gap-4 mb-4">
+                    {twitterUser.profile_image_url && (
+                      <img 
+                        src={twitterUser.profile_image_url} 
+                        alt={twitterUser.name}
+                        className="w-16 h-16 rounded-full border-2 border-blue-500"
+                      />
+                    )}
+                    <div>
+                      <p className="text-xl font-bold text-white">{twitterUser.name}</p>
+                      <p className="text-blue-400">@{twitterUser.username}</p>
+                    </div>
+                  </div>
+                  <p className="text-green-400 font-semibold">✓ Ready to earn $JAO!</p>
+                  <button 
+                    onClick={handleTwitterDisconnect}
+                    className="mt-4 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-full text-sm font-semibold transition-all border border-red-500/30"
+                  >
+                    Disconnect Twitter
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-gray-300 mb-6">
+                    Link your Twitter account to unlock campaign access and start earning $JAO for every action.
+                  </p>
+                  <Link 
+                    href="/api/auth/twitter"
+                    className="block w-full px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full font-black text-lg transition-all transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 text-center"
+                  >
+                    AUTHORIZE TWITTER ACCOUNT
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
@@ -117,16 +224,21 @@ export default function Dashboard() {
                 <h2 className="text-2xl font-black text-yellow-400">ACTIVE CAMPAIGNS</h2>
               </div>
               <p className="text-gray-300 mb-6">
-                No campaigns available yet. Connect your Twitter to see live campaigns and start earning.
+                {twitterUser 
+                  ? "No active campaigns at the moment. Check back soon!"
+                  : "No campaigns available yet. Connect your Twitter to see live campaigns and start earning."
+                }
               </p>
-              <div className="space-y-3">
-                <div className="bg-black/30 rounded-xl p-4 border border-white/10">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-500">Waiting for Twitter connection...</span>
-                    <span className="text-sm text-gray-600">0 Available</span>
+              {!twitterUser && (
+                <div className="space-y-3">
+                  <div className="bg-black/30 rounded-xl p-4 border border-white/10">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500">Waiting for Twitter connection...</span>
+                      <span className="text-sm text-gray-600">0 Available</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
